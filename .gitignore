@@ -12,6 +12,7 @@
 
 # Python (icon tools)
 /.venv/
+/.venv-tools/
 __pycache__/
 *.pyc
 
