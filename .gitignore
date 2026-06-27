@@ -1,0 +1,22 @@
+# Pebble build output
+/build/
+*.pbw
+
+# Waf
+.waf-*
+.lock-waf*
+/.pebble-cache/
+
+# Node
+/node_modules/
+
+# Python (icon tools)
+/.venv/
+__pycache__/
+*.pyc
+
+# Test screenshots
+metro_*.png
+
+# macOS
+.DS_Store

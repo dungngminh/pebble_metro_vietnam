@@ -1,0 +1,69 @@
+{
+  "name": "metro-vietnam",
+  "author": "dungngminh",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {
+    "pebble-clay": "^1.0.4"
+  },
+  "pebble": {
+    "displayName": "Metro VietNam",
+    "uuid": "3f0de1e6-8bb2-4b1d-a431-525146079828",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "chalk",
+      "diorite",
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "request",
+      "line_count",
+      "line_index",
+      "line_id",
+      "line_name",
+      "line_color",
+      "terminus",
+      "status",
+      "dep_count",
+      "dep_epochs",
+      "first_train",
+      "stations",
+      "station_count",
+      "show_splash"
+    ],
+    "resources": {
+      "media": [
+        {
+          "type": "bitmap",
+          "name": "IMAGE_APP_ICON",
+          "file": "images/app_icon.png",
+          "menuIcon": true
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_TRAIN",
+          "file": "images/train.png"
+        }
+      ]
+    },
+    "publishedMedia": [
+      {
+        "name": "TRAIN",
+        "id": 1,
+        "glance": "IMAGE_TRAIN",
+        "timeline": {
+          "tiny": "IMAGE_TRAIN",
+          "small": "IMAGE_TRAIN",
+          "large": "IMAGE_TRAIN"
+        }
+      }
+    ]
+  }
+}

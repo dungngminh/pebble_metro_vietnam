@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node is needed for PebbleKit JS (pebble-clay + webpack).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Skip the pebble-tool first-run analytics prompt in CI.
+      - name: Disable analytics prompt
+        run: |
+          mkdir -p ~/.pebble-sdk
+          touch ~/.pebble-sdk/NO_TRACKING
+
+      # Rebble / Core Devices pebble-tool (same one used locally: `pebble` v5).
+      - name: Install pebble-tool
+        run: pipx install pebble-tool
+
+      - name: Install Pebble SDK
+        run: |
+          yes | pebble sdk install latest
+
+      - name: Build
+        run: pebble build
+
+      - name: Upload .pbw
+        uses: actions/upload-artifact@v4
+        with:
+          name: metro-vietnam
+          path: build/*.pbw
+          if-no-files-found: error
