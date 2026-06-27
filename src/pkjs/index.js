@@ -23,7 +23,8 @@ var DEPS_TO_WATCH = 6; // departures sent to the watch for display + countdown
 // ---- settings ----------------------------------------------------------------
 
 function loadSettings() {
-  var raw = localStorage.getItem('metro_settings');
+  // Read from Clay's own store so the watch and the config page stay in sync.
+  var raw = localStorage.getItem('clay-settings');
   var s = raw ? JSON.parse(raw) : {};
   return {
     track: {
@@ -89,6 +90,7 @@ function syncToWatch() {
   header[keys.show_splash] = settings.showSplash ? 1 : 0;
   enqueue(header);
 
+  var pins = [];
   ids.forEach(function (id, index) {
     var line = timetable.LINES[id];
     var dep = timetable.nextDepartures(id, now, DEPS_TO_WATCH);
@@ -106,9 +108,12 @@ function syncToWatch() {
     dict[keys.station_count] = line.stations.length;
     enqueue(dict);
 
-    // Push timeline pins for this line.
-    timeline.pushDepartures(id, line, dep, settings.pinCount, settings.reminders);
+    pins = pins.concat(timeline.buildPins(id, line, dep, settings.pinCount, settings.reminders));
   });
+
+  // Reconcile timeline pins: pushes the desired set, deletes pins for lines that
+  // were untracked or trimmed by a lower pin count.
+  timeline.syncPins(pins);
 }
 
 // ---- events ------------------------------------------------------------------
@@ -133,17 +138,13 @@ Pebble.addEventListener('showConfiguration', function () {
 
 Pebble.addEventListener('webviewclosed', function (e) {
   if (!e || !e.response) return;
-  var resp;
   try {
-    resp = JSON.parse(decodeURIComponent(e.response));
+    // Persists the new values to localStorage['clay-settings'] so both the watch
+    // and the next config page load see them (fixes settings reverting).
+    clay.getSettings(e.response);
   } catch (err) {
     console.log('config parse error: ' + err);
     return;
   }
-  var flat = {};
-  Object.keys(resp).forEach(function (k) {
-    flat[k] = resp[k] && resp[k].value !== undefined ? resp[k].value : resp[k];
-  });
-  localStorage.setItem('metro_settings', JSON.stringify(flat));
   syncToWatch();
 });

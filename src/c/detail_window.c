@@ -122,21 +122,28 @@ static void draw_track_and_count(GContext *ctx, GRect bounds, const LineData *li
     }
   }
 
-  // Countdown / clock, with its small caption above it.
-  int16_t cx = bounds.size.w / 2;
-  graphics_context_set_text_color(ctx, GColorLightGray);
-  graphics_draw_text(ctx, label, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                     GRect(0, 52, bounds.size.w, 18), GTextOverflowModeFill,
-                     GTextAlignmentCenter, NULL);
+  // Layout adapts to short screens (aplite/basalt 144x168 vs emery 200x228).
+  bool small = bounds.size.h < 200;
+
+  // Caption (big screens only) + big countdown / clock.
+  if (!small) {
+    graphics_context_set_text_color(ctx, GColorLightGray);
+    graphics_draw_text(ctx, label, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                       GRect(0, 52, bounds.size.w, 18), GTextOverflowModeFill,
+                       GTextAlignmentCenter, NULL);
+  }
+  int16_t num_y = small ? 52 : 64;
+  int16_t num_h = small ? 40 : 46;
+  GFont num_font = fonts_get_system_font(small ? FONT_KEY_LECO_36_BOLD_NUMBERS
+                                               : FONT_KEY_LECO_42_NUMBERS);
   graphics_context_set_text_color(ctx, num_color);
-  graphics_draw_text(ctx, big, fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS),
-                     GRect(0, 64, bounds.size.w, 46), GTextOverflowModeFill,
-                     GTextAlignmentCenter, NULL);
+  graphics_draw_text(ctx, big, num_font, GRect(0, num_y, bounds.size.w, num_h),
+                     GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 
   // Horizontal A -> B track.
   int16_t m = 18;
   int16_t x0 = m, x1 = bounds.size.w - m;
-  int16_t ty = bounds.size.h - 76;
+  int16_t ty = bounds.size.h - (small ? 56 : 76);
   graphics_context_set_fill_color(ctx, GColorDarkGray);
   graphics_fill_rect(ctx, GRect(x0, ty - 1, x1 - x0, 3), 0, GCornerNone);
   int16_t tx = x0 + (int16_t)(((int32_t)(x1 - x0) * frac1000) / 1000);
@@ -159,22 +166,23 @@ static void draw_track_and_count(GContext *ctx, GRect bounds, const LineData *li
   int16_t half = bounds.size.w / 2;
   graphics_context_set_text_color(ctx, GColorWhite);
   graphics_draw_text(ctx, aname, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                     GRect(x0 - 4, ty + 5, half - x0 + 2, 18), GTextOverflowModeTrailingEllipsis,
+                     GRect(x0 - 4, ty + 3, half - x0 + 2, 18), GTextOverflowModeTrailingEllipsis,
                      GTextAlignmentLeft, NULL);
   graphics_draw_text(ctx, bname, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                     GRect(half - 2, ty + 5, x1 - half + 6, 18), GTextOverflowModeTrailingEllipsis,
+                     GRect(half - 2, ty + 3, x1 - half + 6, 18), GTextOverflowModeTrailingEllipsis,
                      GTextAlignmentRight, NULL);
   if (have_times) {
     char at[8], bt[8];
     format_clock(a_time, at, sizeof(at));
     format_clock(b_time, bt, sizeof(bt));
+    GFont tf = fonts_get_system_font(small ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD);
+    int16_t time_y = ty + (small ? 18 : 22);
+    int16_t time_h = small ? 22 : 26;
     graphics_context_set_text_color(ctx, GColorLightGray);
-    graphics_draw_text(ctx, at, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
-                       GRect(x0 - 4, ty + 22, half - x0 + 2, 26), GTextOverflowModeFill,
-                       GTextAlignmentLeft, NULL);
-    graphics_draw_text(ctx, bt, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
-                       GRect(half - 2, ty + 22, x1 - half + 6, 26), GTextOverflowModeFill,
-                       GTextAlignmentRight, NULL);
+    graphics_draw_text(ctx, at, tf, GRect(x0 - 4, time_y, half - x0 + 2, time_h),
+                       GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+    graphics_draw_text(ctx, bt, tf, GRect(half - 2, time_y, x1 - half + 6, time_h),
+                       GTextOverflowModeFill, GTextAlignmentRight, NULL);
   }
 }
 
