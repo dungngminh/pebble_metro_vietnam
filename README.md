@@ -34,9 +34,9 @@ Hanoi 2A · Nhon–Cau Giay · HCMC Line 1 · Live countdown · A→B trip · Fu
 |---|---|---|
 | ![Lines](store/screenshot-lines.png) | ![Countdown](store/screenshot-detail.png) | ![Departures](store/screenshot-departures.png) |
 
-| Full line (per departure) | Pick A → B | |
+| Full line (per departure) | Pick origin (A) | Pick destination (B) |
 |---|---|---|
-| ![Full line](store/screenshot-fullline.png) | ![Pick station](store/screenshot-picker.png) | |
+| ![Full line](store/screenshot-fullline.png) | ![Pick origin](store/screenshot-picker.png) | ![Pick destination](store/screenshot-dest.png) |
 
 ### Features
 
