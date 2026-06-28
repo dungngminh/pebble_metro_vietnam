@@ -147,6 +147,32 @@ int32_t data_arrival_at(uint8_t line_index, uint8_t dep_i, uint8_t station_idx) 
   return dep + (int32_t)from_origin * SEG_SECONDS;
 }
 
+TripPhase data_trip_state(uint8_t line_index, time_t now,
+                          int32_t *a_time, int32_t *b_time) {
+  if (line_index >= g_app_data.line_count) return TRIP_NONE;
+  LineData *line = &g_app_data.lines[line_index];
+  // 1) A train already running the chosen A->B leg (departed A, not yet at B).
+  for (uint8_t i = 0; i < line->dep_count; i++) {
+    int32_t aA = data_arrival(line_index, i);
+    int32_t aB = data_dest_arrival(line_index, i);
+    if ((time_t)aA <= now && now < (time_t)aB) {
+      if (a_time) *a_time = aA;
+      if (b_time) *b_time = aB;
+      return TRIP_INROUTE;
+    }
+  }
+  // 2) Otherwise the next train still approaching A.
+  for (uint8_t i = 0; i < line->dep_count; i++) {
+    int32_t aA = data_arrival(line_index, i);
+    if ((time_t)aA > now) {
+      if (a_time) *a_time = aA;
+      if (b_time) *b_time = data_dest_arrival(line_index, i);
+      return TRIP_APPROACH;
+    }
+  }
+  return TRIP_NONE;
+}
+
 GColor data_light(uint8_t line_index) {
   GColor c = line_index < g_app_data.line_count ? g_app_data.lines[line_index].color
                                                 : GColorWhite;

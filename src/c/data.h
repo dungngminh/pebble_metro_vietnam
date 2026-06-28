@@ -85,3 +85,16 @@ uint8_t data_trip_station(uint8_t line_index, int i);        // i-th stop index
 
 // Estimated arrival epoch of departure `dep_i` at an arbitrary station index.
 int32_t data_arrival_at(uint8_t line_index, uint8_t dep_i, uint8_t station_idx);
+
+// Where the relevant train is on the chosen A->B trip, for `now`:
+typedef enum {
+  TRIP_NONE,      // no upcoming train (closed / out of data)
+  TRIP_APPROACH,  // next train hasn't reached A yet -> count down to A
+  TRIP_INROUTE    // a train is between A and B -> count down to B
+} TripPhase;
+
+// Picks the train to display. On TRIP_INROUTE the in-route train (already past A,
+// not yet at B); otherwise the next train approaching A. Fills *a_time (arrival at
+// A) and *b_time (arrival at B) for that train.
+TripPhase data_trip_state(uint8_t line_index, time_t now,
+                          int32_t *a_time, int32_t *b_time);

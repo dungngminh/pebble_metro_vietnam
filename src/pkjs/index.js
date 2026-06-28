@@ -112,8 +112,9 @@ function syncToWatch() {
   });
 
   // Reconcile timeline pins: pushes the desired set, deletes pins for lines that
-  // were untracked or trimmed by a lower pin count.
-  timeline.syncPins(pins);
+  // were untracked or trimmed by a lower pin count. Passing every known line id
+  // lets it remove pins for lines the user just unchecked.
+  timeline.syncPins(pins, timetable.LINE_ORDER);
 }
 
 // ---- events ------------------------------------------------------------------

@@ -76,49 +76,48 @@ static void draw_header(GContext *ctx, GRect bounds, const LineData *line) {
 }
 
 static void draw_track_and_count(GContext *ctx, GRect bounds, const LineData *line, time_t now) {
-  int idx = data_next_index(s_line_index, now);
+  int32_t a_time = 0, b_time = 0;
+  TripPhase phase = data_trip_state(s_line_index, now, &a_time, &b_time);
 
   char big[12];
   char label[20];
   GColor num_color = GColorWhite;
-  bool moving = false;
+  bool moving = false;          // train is on the A->B leg (drives the marker)
   int frac1000 = 0;             // progress along the A->B track, 0..1000
-  int32_t a_time = 0, b_time = 0;
-  bool have_times = false;
+  bool have_times = (phase != TRIP_NONE);
 
-  if (idx < 0) {
+  if (phase == TRIP_NONE) {
     snprintf(big, sizeof(big), "--:--");
     snprintf(label, sizeof(label), "no data");
+  } else if (line->closed) {
+    format_clock(a_time, big, sizeof(big));
+    snprintf(label, sizeof(label), "first train");
   } else {
-    int32_t arr = data_arrival(s_line_index, idx);
-    int32_t secs = arr - (int32_t)now;
+    // Count down to A while approaching, to B once the train is on the leg.
+    int32_t target = (phase == TRIP_INROUTE) ? b_time : a_time;
+    int32_t secs = target - (int32_t)now;
     if (secs < 0) secs = 0;
 
-    int32_t headway = 600;
-    if (idx + 1 < line->dep_count) headway = line->deps[idx + 1] - line->deps[idx];
-    else if (idx > 0) headway = line->deps[idx] - line->deps[idx - 1];
-    if (headway <= 0) headway = 600;
-
-    bool at_station = data_offset(s_line_index) > 0;
-    a_time = arr;
-    b_time = data_dest_arrival(s_line_index, idx);
-    have_times = true;
-
-    if (line->closed) {
-      format_clock(arr, big, sizeof(big));
-      snprintf(label, sizeof(label), "first train");
-    } else if (secs < 3600) {
-      snprintf(big, sizeof(big), "%d:%02d", (int)(secs / 60), (int)(secs % 60));
-      snprintf(label, sizeof(label), at_station ? "until arrival" : "until next");
-      int32_t elapsed = headway - secs;
-      if (elapsed < 0) elapsed = 0;
-      frac1000 = (int)((1000 * elapsed) / headway);
+    if (phase == TRIP_INROUTE) {
+      // Progress = how far along the A->B leg the train is, 0..1 of the ride time.
+      int32_t leg = b_time - a_time;
+      if (leg <= 0) leg = 1;
+      int32_t done = (int32_t)now - a_time;
+      if (done < 0) done = 0;
+      frac1000 = (int)((1000 * done) / leg);
+      if (frac1000 > 1000) frac1000 = 1000;
       frac1000 = frac1000 * s_intro / 1000; // intro sweep-in
       moving = true;
+      snprintf(label, sizeof(label), "until arrival");
+    } else {
+      snprintf(label, sizeof(label), "until departure");
+    }
+
+    if (secs < 3600) {
+      snprintf(big, sizeof(big), "%d:%02d", (int)(secs / 60), (int)(secs % 60));
       if (secs < 60 && s_pulse_on) num_color = GColorRed;
     } else {
-      format_clock(arr, big, sizeof(big));
-      snprintf(label, sizeof(label), at_station ? "arrival" : "next train");
+      format_clock(target, big, sizeof(big));
     }
   }
 

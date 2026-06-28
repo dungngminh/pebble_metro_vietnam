@@ -2,16 +2,21 @@
  * timeline.js — push/delete departure pins on the Pebble timeline via the
  * Rebble timeline web API. Requires a per-user token and phone internet.
  *
- * syncPins() reconciles: it PUTs the desired pins and DELETEs any pin that was
- * pushed before but is no longer wanted (e.g. a line was untracked or the pin
- * count lowered).
+ * Pin ids are STABLE per (line, slot): 'metro-<lineId>-<slot>'. This makes
+ * reconciliation reliable without depending on persisted state — syncPins()
+ * deletes every slot of every known line that is not in the desired set, so
+ * pins for an untracked line (or trimmed by a lower pin count) always go away.
  */
 
 var TIMELINE_API = 'https://timeline-api.rebble.io/v1/user/pins/';
-var PIN_IDS_KEY = 'metro_pin_ids';
+var MAX_SLOTS = 6; // upper bound on departures pinned per line
 
 function isoFromEpoch(sec) {
   return new Date(sec * 1000).toISOString();
+}
+
+function pinId(lineId, slot) {
+  return 'metro-' + lineId + '-' + slot;
 }
 
 function putPin(token, pin) {
@@ -27,13 +32,14 @@ function deletePin(token, id) {
   var req = new XMLHttpRequest();
   req.open('DELETE', TIMELINE_API + id, true);
   req.setRequestHeader('X-User-Token', token);
+  // 404 here is fine: the slot had no pin to delete.
   req.onload = function () { console.log('pin DEL ' + id + ' -> ' + req.status); };
   req.send();
 }
 
-function buildPin(lineId, line, epochSec, withReminder) {
+function buildPin(lineId, slot, line, epochSec, withReminder) {
   var pin = {
-    id: 'metro-' + lineId + '-' + epochSec,
+    id: pinId(lineId, slot),
     time: isoFromEpoch(epochSec),
     layout: {
       type: 'genericPin',
@@ -62,26 +68,30 @@ function buildPin(lineId, line, epochSec, withReminder) {
 function buildPins(lineId, line, departures, count, withReminder) {
   var pins = [];
   if (count <= 0) return pins;
-  departures.epochs.slice(0, count).forEach(function (e) {
-    pins.push(buildPin(lineId, line, e, withReminder));
+  if (count > MAX_SLOTS) count = MAX_SLOTS;
+  departures.epochs.slice(0, count).forEach(function (e, slot) {
+    pins.push(buildPin(lineId, slot, line, e, withReminder));
   });
   return pins;
 }
 
 // Reconcile the timeline against the full desired set of pins.
-function syncPins(pins) {
-  var newIds = pins.map(function (p) { return p.id; });
-  var prevIds;
-  try { prevIds = JSON.parse(localStorage.getItem(PIN_IDS_KEY)) || []; }
-  catch (e) { prevIds = []; }
+// `allLineIds` is every line the app knows about, so we can delete pins for
+// lines the user has just UNTRACKED (their slots won't appear in `pins`).
+function syncPins(pins, allLineIds) {
+  var desired = {};
+  pins.forEach(function (p) { desired[p.id] = true; });
 
   Pebble.getTimelineToken(function (token) {
-    // Remove pins that are no longer wanted.
-    prevIds.filter(function (id) { return newIds.indexOf(id) < 0; })
-           .forEach(function (id) { deletePin(token, id); });
+    // Delete every slot of every known line that isn't currently wanted.
+    allLineIds.forEach(function (lid) {
+      for (var slot = 0; slot < MAX_SLOTS; slot++) {
+        var id = pinId(lid, slot);
+        if (!desired[id]) deletePin(token, id);
+      }
+    });
     // Upsert the current pins (PUT is idempotent).
     pins.forEach(function (p) { putPin(token, p); });
-    localStorage.setItem(PIN_IDS_KEY, JSON.stringify(newIds));
   }, function () {
     console.log('getTimelineToken failed - cannot sync pins');
   });
