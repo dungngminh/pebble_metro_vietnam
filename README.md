@@ -9,7 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/dungngminh/metro-vietnam/actions/workflows/build.yml"><img src="https://github.com/dungngminh/metro-vietnam/workflows/Build/badge.svg" alt="Build" /></a>
+  <a href="https://github.com/dungngminh/pebble_metro_vietnam/releases/latest"><img src="https://img.shields.io/github/v/release/dungngminh/pebble_metro_vietnam?label=release&color=brightgreen" alt="Release" /></a>
+  <a href="https://github.com/dungngminh/pebble_metro_vietnam/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/dungngminh/pebble_metro_vietnam/build.yml?branch=main&label=build" alt="Build" /></a>
   <img src="https://img.shields.io/badge/Pebble-Time%202%20(emery)-orange" alt="Pebble Time 2" />
   <img src="https://img.shields.io/badge/SDK-4.x-blue" alt="SDK" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
