@@ -10,6 +10,7 @@
 
 var TIMELINE_API = 'https://timeline-api.rebble.io/v1/user/pins/';
 var MAX_SLOTS = 6; // upper bound on departures pinned per line
+var LEGACY_IDS_KEY = 'metro_pin_ids'; // ids from the old per-epoch id scheme
 
 function isoFromEpoch(sec) {
   return new Date(sec * 1000).toISOString();
@@ -83,6 +84,18 @@ function syncPins(pins, allLineIds) {
   pins.forEach(function (p) { desired[p.id] = true; });
 
   Pebble.getTimelineToken(function (token) {
+    // One-time migration: older versions used per-epoch ids (metro-<line>-<epoch>)
+    // recorded here. The slot-id scheme can't enumerate them, so delete them
+    // explicitly, then clear the key so this runs only until they're gone.
+    try {
+      var legacy = JSON.parse(localStorage.getItem(LEGACY_IDS_KEY)) || [];
+      if (legacy.length) {
+        console.log('purging ' + legacy.length + ' legacy pin(s)');
+        legacy.forEach(function (id) { deletePin(token, id); });
+        localStorage.removeItem(LEGACY_IDS_KEY);
+      }
+    } catch (e) { localStorage.removeItem(LEGACY_IDS_KEY); }
+
     // Delete every slot of every known line that isn't currently wanted.
     allLineIds.forEach(function (lid) {
       for (var slot = 0; slot < MAX_SLOTS; slot++) {
