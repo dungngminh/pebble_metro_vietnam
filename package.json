@@ -1,7 +1,7 @@
 {
   "name": "metro-vietnam",
   "author": "dungngminh",
-  "version": "1.0.3",
+  "version": "1.2.0",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {
@@ -28,6 +28,7 @@
       "line_index",
       "line_id",
       "line_name",
+      "line_short",
       "line_color",
       "terminus",
       "status",

@@ -10,6 +10,25 @@ void anim_slide(Layer *layer, GRect from, GRect to, uint32_t duration_ms, uint32
   animation_schedule(anim);
 }
 
+void ui_draw_now(GContext *ctx, GRect hdr) {
+  char hm[8];
+  time_t t = time(NULL);
+  strftime(hm, sizeof(hm), "%H:%M", localtime(&t));
+
+  int ph = 18;
+  int x = hdr.size.w - UI_NOW_W + 2;
+  int y = (hdr.size.h - ph) / 2;
+  if (y < 1) y = 1;
+  GRect chip = GRect(x, y, UI_NOW_W - 5, ph);
+  // White outlined chip = "this is the live clock", distinct from plain times.
+  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_draw_round_rect(ctx, chip, 4);
+  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_draw_text(ctx, hm, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
+                     GRect(chip.origin.x, chip.origin.y - 1, chip.size.w, chip.size.h),
+                     GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+}
+
 bool marquee_draw(GContext *ctx, const char *text, GFont font, GRect rect,
                   GTextAlignment align, int offset) {
   GSize sz = graphics_text_layout_get_content_size(

@@ -3,6 +3,7 @@
 #include "anim.h"
 #include "station_menu.h"
 #include "route_window.h"
+#include "schedule_window.h"
 
 // Provided by the main module: ask the phone to recompute & resend departures.
 extern void app_request_refresh(void);
@@ -13,6 +14,11 @@ static uint8_t s_line_index;
 static bool s_pulse_on;
 static GBitmap *s_train;
 static int32_t s_last_alert_arr;  // arrival epoch we last buzzed for
+
+// In-app arrival banner (shown over the UI when a train is boarding).
+static time_t s_alert_until;      // banner visible while now < this
+static char s_alert_route[56];    // "A -> B"
+static char s_alert_clock[8];     // departure HH:MM
 
 // Intro sweep progress, 0..1000 (drives ring fill + marker on entry / change).
 static Animation *s_intro_anim;
@@ -60,9 +66,16 @@ static void format_clock(int32_t epoch, char *buf, size_t len) {
 static void draw_header(GContext *ctx, GRect bounds, const LineData *line) {
   graphics_context_set_fill_color(ctx, line->color);
   graphics_fill_rect(ctx, GRect(0, 0, bounds.size.w, 30), 0, GCornerNone);
+
+  // Live current time as a chip, top-right on the colour bar.
+  ui_draw_now(ctx, GRect(0, 0, bounds.size.w, 30));
+
+  // Line title: full name on wide screens, short code on the narrow 144px watches.
+  bool narrow = bounds.size.w < 180;
+  const char *title = (narrow && line->shortname[0]) ? line->shortname : line->name;
   graphics_context_set_text_color(ctx, GColorWhite);
-  marquee_draw(ctx, line->name, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-               GRect(4, 3, bounds.size.w - 8, 24), GTextAlignmentCenter, s_marq_off);
+  marquee_draw(ctx, title, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+               GRect(4, 3, bounds.size.w - UI_NOW_W - 6, 24), GTextAlignmentLeft, s_marq_off);
 
   // Sub-header: selected station and direction.
   char sub[52];
@@ -115,7 +128,6 @@ static void draw_track_and_count(GContext *ctx, GRect bounds, const LineData *li
 
     if (secs < 3600) {
       snprintf(big, sizeof(big), "%d:%02d", (int)(secs / 60), (int)(secs % 60));
-      if (secs < 60 && s_pulse_on) num_color = GColorRed;
     } else {
       format_clock(target, big, sizeof(big));
     }
@@ -187,15 +199,17 @@ static void draw_track_and_count(GContext *ctx, GRect bounds, const LineData *li
 
 static void draw_footer(GContext *ctx, GRect bounds, const LineData *line, time_t now) {
   graphics_context_set_text_color(ctx, GColorLightGray);
-  const char *hint = "SEL: pick   UP: line   DOWN: rev";
+  const char *hint = "SEL: pick   UP: times   DOWN: rev";
 #if PBL_API_EXISTS(touch_service_subscribe)
-  if (touch_service_is_enabled()) hint = "2 tap: pick   swipe up: line   down: rev";
+  if (touch_service_is_enabled()) hint = "2 tap: pick   swipe up: times   down: rev";
 #endif
   graphics_draw_text(ctx, hint,
                      fonts_get_system_font(FONT_KEY_GOTHIC_14),
                      GRect(0, bounds.size.h - 20, bounds.size.w, 18),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 }
+
+static void draw_alert_banner(GContext *ctx, GRect bounds, time_t now);
 
 static void canvas_update(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
@@ -205,6 +219,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   draw_header(ctx, bounds, line);
   draw_track_and_count(ctx, bounds, line, now);
   draw_footer(ctx, bounds, line, now);
+  draw_alert_banner(ctx, bounds, now); // boarding banner over everything
 }
 
 // ---- ticks & clicks ----------------------------------------------------------
@@ -222,7 +237,44 @@ static void check_arrival_alert(time_t now) {
   if (secs >= 0 && secs <= ALERT_SECONDS && arr != s_last_alert_arr) {
     s_last_alert_arr = arr;
     vibes_double_pulse();
+
+    // Build a clear banner: which trip (A -> B) and the boarding time.
+    LineStations *st = &g_stations[s_line_index];
+    LineData *line = &g_app_data.lines[s_line_index];
+    const char *aname = (st->count > 0 && line->sel_station < st->count)
+                            ? st->names[line->sel_station] : "origin";
+    snprintf(s_alert_route, sizeof(s_alert_route), "%s > %s",
+             aname, data_heading(s_line_index));
+    format_clock(arr, s_alert_clock, sizeof(s_alert_clock));
+    s_alert_until = now + 12; // keep the banner up for 12s
   }
+}
+
+// Full-width banner announcing the boarding train. Drawn over everything.
+static void draw_alert_banner(GContext *ctx, GRect bounds, time_t now) {
+  if (now >= s_alert_until) return;
+  const LineData *line = &g_app_data.lines[s_line_index];
+  int16_t h = 76;
+  int16_t y = (bounds.size.h - h) / 2;
+  GRect box = GRect(6, y, bounds.size.w - 12, h);
+  graphics_context_set_fill_color(ctx, line->color);
+  graphics_fill_rect(ctx, box, 6, GCornersAll);
+  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_draw_round_rect(ctx, box, 6);
+
+  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_draw_text(ctx, "Train boarding",
+                     fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+                     GRect(box.origin.x + 4, y + 4, box.size.w - 8, 22),
+                     GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  graphics_draw_text(ctx, s_alert_route,
+                     fonts_get_system_font(FONT_KEY_GOTHIC_18),
+                     GRect(box.origin.x + 4, y + 26, box.size.w - 8, 24),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  graphics_draw_text(ctx, s_alert_clock,
+                     fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+                     GRect(box.origin.x + 4, y + 50, box.size.w - 8, 22),
+                     GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -240,21 +292,33 @@ static void reverse_trip(void) {
   data_swap(s_line_index); // reverse the trip (A <-> B)
   data_save();
   s_last_alert_arr = 0;    // arrival changed; allow a fresh alert
+  s_alert_until = 0;       // drop any banner for the old direction
   start_intro();
 }
 
 static void up_click(ClickRecognizerRef rec, void *ctx) {
-  route_window_push(s_line_index); // full line stop list
+  schedule_window_push(s_line_index); // upcoming departures (khung gio)
 }
 
 static void down_click(ClickRecognizerRef rec, void *ctx) {
   reverse_trip(); // reverse A <-> B
 }
 
+static void back_click(ClickRecognizerRef rec, void *ctx) {
+  // While the boarding banner is up, BACK just dismisses it; otherwise leave.
+  if (time(NULL) < s_alert_until) {
+    s_alert_until = 0;
+    if (s_canvas) layer_mark_dirty(s_canvas);
+    return;
+  }
+  window_stack_pop(true);
+}
+
 static void click_config(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
   window_single_click_subscribe(BUTTON_ID_UP, up_click);
   window_single_click_subscribe(BUTTON_ID_DOWN, down_click);
+  window_single_click_subscribe(BUTTON_ID_BACK, back_click);
 }
 
 // ---- touch (Pebble Time 2 touchscreen) ---------------------------------------
@@ -281,13 +345,20 @@ static void touch_handler(const TouchEvent *event, void *context) {
   }
   if (event->type != TouchEvent_Liftoff) return;
 
+  // While the boarding banner is up, any tap/swipe just dismisses it.
+  if (time(NULL) < s_alert_until) {
+    s_alert_until = 0;
+    if (s_canvas) layer_mark_dirty(s_canvas);
+    return;
+  }
+
   int16_t dx = event->x - s_tx0, dy = event->y - s_ty0;
   int16_t adx = dx < 0 ? -dx : dx;
   int16_t ady = dy < 0 ? -dy : dy;
 
   if (ady >= SWIPE_MIN && ady > adx) {
-    if (dy < 0) route_window_push(s_line_index); // swipe up -> full line list
-    else reverse_trip();                         // swipe down -> reverse A <-> B
+    if (dy < 0) schedule_window_push(s_line_index); // swipe up -> departures list
+    else reverse_trip();                            // swipe down -> reverse A <-> B
   } else if (adx >= SWIPE_MIN && adx > ady) {
     window_stack_pop(true);     // horizontal swipe -> back
   } else {                      // tap: detect a double tap
@@ -311,6 +382,7 @@ static void window_load(Window *window) {
 
   s_train = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_TRAIN);
   s_last_alert_arr = 0;
+  s_alert_until = 0;
 
   s_canvas = layer_create(bounds);
   layer_set_update_proc(s_canvas, canvas_update);
@@ -372,6 +444,7 @@ void detail_window_push(uint8_t line_index) {
 void detail_window_refresh(void) {
   if (s_canvas) {
     s_last_alert_arr = 0; // selection/data changed; re-arm the arrival buzz
+    s_alert_until = 0;    // drop any stale banner
     start_intro();
     layer_mark_dirty(s_canvas);
   }

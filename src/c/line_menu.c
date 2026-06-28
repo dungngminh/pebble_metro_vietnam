@@ -1,11 +1,15 @@
 #include "line_menu.h"
 #include "data.h"
 #include "detail_window.h"
+#include "anim.h"
 
 #define LINE_ROW_H 54
+#define HDR_LM 24   // top header strip carrying the title + live clock
 
 static Window *s_window;
 static MenuLayer *s_menu;
+static Layer *s_lm_header;
+static AppTimer *s_lm_tick;
 static GBitmap *s_icon;
 
 static GPoint s_play_pts[] = {{0, 0}, {0, 12}, {11, 6}};
@@ -63,9 +67,11 @@ static void draw_row(GContext *ctx, const Layer *cell, MenuIndex *idx, void *con
   graphics_context_set_fill_color(ctx, line->color);
   graphics_fill_rect(ctx, GRect(0, 0, 6, bounds.size.h), 0, GCornerNone);
 
-  // Line name (leave room for the status glyph on the right).
+  // Line title: full name on wide screens, short code on the narrow 144px watches.
+  bool narrow = bounds.size.w < 180;
+  const char *ltitle = (narrow && line->shortname[0]) ? line->shortname : line->name;
   graphics_context_set_text_color(ctx, GColorBlack);
-  graphics_draw_text(ctx, line->name, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+  graphics_draw_text(ctx, ltitle, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
                      GRect(12, 2, w - 44, 26), GTextOverflowModeTrailingEllipsis,
                      GTextAlignmentLeft, NULL);
 
@@ -107,9 +113,26 @@ static void draw_row(GContext *ctx, const Layer *cell, MenuIndex *idx, void *con
                      GTextAlignmentRight, NULL);
 }
 
+// Top strip: app title on the left, live-clock chip on the right.
+static void lm_header_update(Layer *layer, GContext *ctx) {
+  GRect b = layer_get_bounds(layer);
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_rect(ctx, b, 0, GCornerNone);
+  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_draw_text(ctx, "Metro VN", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+                     GRect(6, 0, b.size.w - 12 - UI_NOW_W, 22), GTextOverflowModeTrailingEllipsis,
+                     GTextAlignmentLeft, NULL);
+  ui_draw_now(ctx, b);
+}
+
+static void lm_tick(void *ctx) {
+  if (s_lm_header) layer_mark_dirty(s_lm_header);
+  s_lm_tick = app_timer_register(1000, lm_tick, NULL);
+}
+
 static int16_t get_cell_height(MenuLayer *menu, MenuIndex *idx, void *ctx) {
   if (g_app_data.line_count == 0) {
-    return layer_get_frame(menu_layer_get_layer(menu)).size.h; // full screen
+    return layer_get_frame(menu_layer_get_layer(menu)).size.h; // full menu area
   }
   return 54;
 }
@@ -133,7 +156,8 @@ static void line_touch(const TouchEvent *e, void *ctx) {
     return;
   }
   if (e->type != TouchEvent_Liftoff || s_moved) return;
-  uint16_t row = e->y / LINE_ROW_H;            // list fits the screen (<=3 rows)
+  if (e->y < HDR_LM) return;                    // ignore taps on the header strip
+  uint16_t row = (e->y - HDR_LM) / LINE_ROW_H;  // account for the header offset
   if (row < g_app_data.line_count) detail_window_push(row);
 }
 
@@ -148,7 +172,8 @@ static void window_load(Window *window) {
   s_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_APP_ICON);
   s_play = gpath_create(&PLAY_INFO);
 
-  s_menu = menu_layer_create(bounds);
+  // Menu sits below the header strip (responsive: uses the actual screen size).
+  s_menu = menu_layer_create(GRect(0, HDR_LM, bounds.size.w, bounds.size.h - HDR_LM));
   menu_layer_set_callbacks(s_menu, NULL, (MenuLayerCallbacks) {
     .get_num_rows = get_num_rows,
     .draw_row = draw_row,
@@ -159,9 +184,16 @@ static void window_load(Window *window) {
   menu_layer_set_highlight_colors(s_menu, GColorPastelYellow, GColorBlack);
   menu_layer_set_click_config_onto_window(s_menu, window);
   layer_add_child(root, menu_layer_get_layer(s_menu));
+
+  s_lm_header = layer_create(GRect(0, 0, bounds.size.w, HDR_LM));
+  layer_set_update_proc(s_lm_header, lm_header_update);
+  layer_add_child(root, s_lm_header);
+  s_lm_tick = app_timer_register(1000, lm_tick, NULL);
 }
 
 static void window_unload(Window *window) {
+  if (s_lm_tick) { app_timer_cancel(s_lm_tick); s_lm_tick = NULL; }
+  if (s_lm_header) { layer_destroy(s_lm_header); s_lm_header = NULL; }
   menu_layer_destroy(s_menu);
   s_menu = NULL;
   if (s_icon) { gbitmap_destroy(s_icon); s_icon = NULL; }

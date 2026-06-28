@@ -24,6 +24,7 @@ static void parse_line_message(DictionaryIterator *it) {
   uint8_t index = t_index->value->uint8;
 
   Tuple *t_name = dict_find(it, MESSAGE_KEY_line_name);
+  Tuple *t_short = dict_find(it, MESSAGE_KEY_line_short);
   Tuple *t_term = dict_find(it, MESSAGE_KEY_terminus);
   Tuple *t_color = dict_find(it, MESSAGE_KEY_line_color);
   Tuple *t_status = dict_find(it, MESSAGE_KEY_status);
@@ -32,6 +33,7 @@ static void parse_line_message(DictionaryIterator *it) {
   Tuple *t_first = dict_find(it, MESSAGE_KEY_first_train);
 
   const char *name = t_name ? t_name->value->cstring : "";
+  const char *shortname = t_short ? t_short->value->cstring : "";
   const char *term = t_term ? t_term->value->cstring : "";
   GColor color = t_color ? (GColor){ .argb = (uint8_t)t_color->value->int32 } : GColorWhite;
   bool closed = t_status && strcmp(t_status->value->cstring, "closed") == 0;
@@ -51,7 +53,7 @@ static void parse_line_message(DictionaryIterator *it) {
   }
   if (t_count && t_count->value->uint8 < dep_count) dep_count = t_count->value->uint8;
 
-  data_set_line(index, name, term, color, closed, first, deps, dep_count);
+  data_set_line(index, name, shortname, term, color, closed, first, deps, dep_count);
 
   Tuple *t_stations = dict_find(it, MESSAGE_KEY_stations);
   if (t_stations) {

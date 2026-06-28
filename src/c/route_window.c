@@ -10,6 +10,7 @@ static Window *s_window;
 static Layer *s_list;
 static Layer *s_header;
 static uint8_t s_line;
+static int s_dep_index;   // chosen departure, or -1 for "next train"
 static int s_scroll;
 static uint8_t s_focus;
 static int s_marq_off;
@@ -46,9 +47,24 @@ static void header_update(Layer *layer, GContext *ctx) {
   graphics_context_set_fill_color(ctx, g_app_data.lines[s_line].color);
   graphics_fill_rect(ctx, b, 0, GCornerNone);
   graphics_context_set_text_color(ctx, GColorWhite);
-  graphics_draw_text(ctx, "Full line - next train", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-                     GRect(6, 2, b.size.w - 12, 22), GTextOverflowModeTrailingEllipsis,
+  // Wide: full wording. Narrow 144px: short code + compact wording.
+  bool narrow = b.size.w < 180;
+  const char *sc = g_app_data.lines[s_line].shortname;
+  char title[28];
+  if (s_dep_index >= 0 && s_dep_index < g_app_data.lines[s_line].dep_count) {
+    char clk[8];
+    time_t t = (time_t)data_arrival(s_line, s_dep_index);
+    strftime(clk, sizeof(clk), "%H:%M", localtime(&t));
+    if (narrow) snprintf(title, sizeof(title), "%s Departs %s", sc, clk);
+    else        snprintf(title, sizeof(title), "Departs %s", clk);
+  } else {
+    snprintf(title, sizeof(title), narrow ? "%s full line" : "Full line - next train",
+             sc);
+  }
+  graphics_draw_text(ctx, title, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+                     GRect(6, 2, b.size.w - 12 - UI_NOW_W, 22), GTextOverflowModeTrailingEllipsis,
                      GTextAlignmentLeft, NULL);
+  ui_draw_now(ctx, b); // live-clock chip, top-right (distinct from the "Departs" time)
 }
 
 static void list_update(Layer *layer, GContext *ctx) {
@@ -56,7 +72,8 @@ static void list_update(Layer *layer, GContext *ctx) {
   LineData *line = &g_app_data.lines[s_line];
   int len = row_count();
   time_t now = time(NULL);
-  int idx = data_next_index(s_line, now); // the approaching departure
+  int idx = s_dep_index >= 0 ? s_dep_index
+                             : data_next_index(s_line, now); // chosen or approaching
   GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
 
   for (int i = 0; i < len; i++) {
@@ -164,6 +181,7 @@ static void route_touch(const TouchEvent *e, void *ctx) {
 static void marq_tick(void *ctx) {
   s_marq_off += 3;
   if (s_list) layer_mark_dirty(s_list);
+  if (s_header) layer_mark_dirty(s_header); // keep the live-clock chip current
   s_marq_timer = app_timer_register(70, marq_tick, NULL);
 }
 
@@ -207,9 +225,10 @@ static void window_unload(Window *window) {
   s_window = NULL;
 }
 
-void route_window_push(uint8_t line_index) {
+void route_window_push_dep(uint8_t line_index, int dep_index) {
   if (line_index >= g_app_data.line_count) return;
   s_line = line_index;
+  s_dep_index = dep_index;
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = window_load,
@@ -218,4 +237,8 @@ void route_window_push(uint8_t line_index) {
     .unload = window_unload,
   });
   window_stack_push(s_window, true);
+}
+
+void route_window_push(uint8_t line_index) {
+  route_window_push_dep(line_index, -1); // -1 = next train
 }

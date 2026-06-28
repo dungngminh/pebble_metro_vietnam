@@ -2,11 +2,12 @@
 #include <pebble.h>
 
 #define MAX_LINES 3
-#define MAX_DEPS 6
+#define MAX_DEPS 10
 #define MAX_STATIONS 14
 #define NAME_LEN 28
 #define TERM_LEN 20
 #define STN_LEN 26
+#define SHORT_LEN 8   // short line code, e.g. "A2", "BT-ST", "N-CG"
 
 // Estimated travel time between adjacent stations (seconds). VN metros publish no
 // per-segment timings, so arrival times at a chosen station are estimates.
@@ -17,6 +18,7 @@
 // persistent storage); they live in g_stations and are re-synced from the phone.
 typedef struct {
   char name[NAME_LEN];
+  char shortname[SHORT_LEN];
   char terminus[TERM_LEN];
   GColor color;
   bool closed;            // currently outside operating hours
@@ -46,9 +48,9 @@ void data_save(void);
 bool data_has_lines(void);
 
 void data_set_line_count(uint8_t count);
-void data_set_line(uint8_t index, const char *name, const char *terminus,
-                   GColor color, bool closed, int32_t first_train,
-                   const int32_t *deps, uint8_t dep_count);
+void data_set_line(uint8_t index, const char *name, const char *shortname,
+                   const char *terminus, GColor color, bool closed,
+                   int32_t first_train, const int32_t *deps, uint8_t dep_count);
 void data_set_stations(uint8_t index, const char *joined); // '\n'-separated
 
 // Seconds added to a departure to reach the selected station in the chosen direction.

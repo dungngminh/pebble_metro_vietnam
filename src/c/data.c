@@ -27,9 +27,9 @@ void data_set_line_count(uint8_t count) {
   g_app_data.line_count = count;
 }
 
-void data_set_line(uint8_t index, const char *name, const char *terminus,
-                   GColor color, bool closed, int32_t first_train,
-                   const int32_t *deps, uint8_t dep_count) {
+void data_set_line(uint8_t index, const char *name, const char *shortname,
+                   const char *terminus, GColor color, bool closed,
+                   int32_t first_train, const int32_t *deps, uint8_t dep_count) {
   if (index >= MAX_LINES) return;
   LineData *line = &g_app_data.lines[index];
   // Preserve user selection across data refreshes.
@@ -38,6 +38,8 @@ void data_set_line(uint8_t index, const char *name, const char *terminus,
 
   strncpy(line->name, name, NAME_LEN - 1);
   line->name[NAME_LEN - 1] = '\0';
+  strncpy(line->shortname, shortname, SHORT_LEN - 1);
+  line->shortname[SHORT_LEN - 1] = '\0';
   strncpy(line->terminus, terminus, TERM_LEN - 1);
   line->terminus[TERM_LEN - 1] = '\0';
   line->color = color;

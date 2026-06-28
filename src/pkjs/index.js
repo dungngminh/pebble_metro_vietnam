@@ -18,7 +18,7 @@ var timeline = require('./timeline');
 
 var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
-var DEPS_TO_WATCH = 6; // departures sent to the watch for display + countdown
+var DEPS_TO_WATCH = 10; // departures sent to the watch for display + countdown
 
 // ---- settings ----------------------------------------------------------------
 
@@ -33,6 +33,7 @@ function loadSettings() {
       benthanh: !!s.track_benthanh
     },
     pinCount: s.pin_count !== undefined ? parseInt(s.pin_count, 10) : 4,
+    bothDir: s.pin_both_dir !== undefined ? s.pin_both_dir : true,
     reminders: s.reminders !== undefined ? s.reminders : true,
     showSplash: s.show_splash !== undefined ? s.show_splash : true
   };
@@ -98,6 +99,7 @@ function syncToWatch() {
     var dict = {};
     dict[keys.line_index] = index;
     dict[keys.line_name] = line.name;
+    dict[keys.line_short] = line.short;
     dict[keys.line_color] = line.color;
     dict[keys.terminus] = line.terminus;
     dict[keys.status] = dep.closed ? 'closed' : 'open';
@@ -108,7 +110,7 @@ function syncToWatch() {
     dict[keys.station_count] = line.stations.length;
     enqueue(dict);
 
-    pins = pins.concat(timeline.buildPins(id, line, dep, settings.pinCount, settings.reminders));
+    pins = pins.concat(timeline.buildPins(id, line, dep, settings.pinCount, settings.reminders, settings.bothDir));
   });
 
   // Reconcile timeline pins: pushes the desired set, deletes pins for lines that

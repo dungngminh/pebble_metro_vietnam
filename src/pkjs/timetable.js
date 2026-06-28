@@ -40,6 +40,7 @@ var LINES = {
   catlinh: {
     id: 'catlinh',
     name: 'Cat Linh - Ha Dong',
+    short: 'A2',
     color: argb(0xE6, 0x00, 0x00), // red
     terminus: 'Yen Nghia',
     weekday: HANOI_WEEKDAY,
@@ -51,6 +52,7 @@ var LINES = {
   nhon: {
     id: 'nhon',
     name: 'Nhon - Cau Giay',
+    short: 'N-CG',
     color: argb(0x00, 0xB0, 0x40), // green
     terminus: 'Cau Giay',
     weekday: HANOI_WEEKDAY,
@@ -61,6 +63,7 @@ var LINES = {
   benthanh: {
     id: 'benthanh',
     name: 'Ben Thanh - Suoi Tien',
+    short: 'BT-ST',
     color: argb(0x00, 0x70, 0xE0), // blue
     terminus: 'Suoi Tien',
     weekday: HCMC_DAILY,

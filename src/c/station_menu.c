@@ -49,10 +49,20 @@ static void header_update(Layer *layer, GContext *ctx) {
   GRect b = layer_get_bounds(layer);
   graphics_context_set_fill_color(ctx, g_app_data.lines[s_line].color);
   graphics_fill_rect(ctx, b, 0, GCornerNone);
+  ui_draw_now(ctx, b); // live-clock chip, top-right
+  // Wide screens: full wording. Narrow 144px watches: short code + compact wording.
+  bool narrow = b.size.w < 180;
+  char title[28];
+  if (narrow) {
+    snprintf(title, sizeof(title), "%s %s", g_app_data.lines[s_line].shortname,
+             s_mode == 0 ? "origin (A)" : "dest (B)");
+  } else {
+    snprintf(title, sizeof(title), "%s",
+             s_mode == 0 ? "Choose origin (A)" : "Choose destination (B)");
+  }
   graphics_context_set_text_color(ctx, GColorWhite);
-  graphics_draw_text(ctx, s_mode == 0 ? "Choose origin (A)" : "Choose destination (B)",
-                     fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-                     GRect(6, 2, b.size.w - 12, 22), GTextOverflowModeTrailingEllipsis,
+  graphics_draw_text(ctx, title, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+                     GRect(6, 2, b.size.w - 12 - UI_NOW_W, 22), GTextOverflowModeTrailingEllipsis,
                      GTextAlignmentLeft, NULL);
 }
 
@@ -183,6 +193,7 @@ static void picker_touch(const TouchEvent *e, void *ctx) {
 static void marq_tick(void *ctx) {
   s_marq_off += 3;
   if (s_list) layer_mark_dirty(s_list);
+  if (s_header) layer_mark_dirty(s_header); // keep the live-clock chip current
   s_marq_timer = app_timer_register(70, marq_tick, NULL);
 }
 

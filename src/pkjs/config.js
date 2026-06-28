@@ -16,6 +16,7 @@ module.exports = [
     items: [
       { type: 'heading', defaultValue: 'Timeline' },
       { type: 'slider', messageKey: 'pin_count', label: 'Departures to pin', defaultValue: 4, min: 0, max: 6, step: 1 },
+      { type: 'toggle', messageKey: 'pin_both_dir', label: 'Pin return direction too', defaultValue: true },
       { type: 'toggle', messageKey: 'reminders', label: 'Remind before arrival', defaultValue: true }
     ]
   },
